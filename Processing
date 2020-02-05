@@ -1,1 +1,111 @@
+###R Code###
+#############################################Preparing and building data for analysis###############################################
+#####county from data 1
+#########################################
+Data1n<-data.frame(Data1$County,Data1$Acres)
+Data1n$Data1.County<-as.character(Data1n$Data1.County)
+s <- strsplit(Data1n$Data1.County, split = ",")
+Data1new<-data.frame(V1= rep(Data1n$Data1.Acres, sapply(s, length)), V2 = unlist(s))
+#########################################
+###income from data 4
+#########################################
+v<-as.character(Data4$Median.household.income)
+bb<-gsub("[$]",'', c(v))
+#bb<-bb[!(bb=="[7]")]
+Mincome<-as.numeric(gsub(",","",bb))
+#########################################
+#####population density data from data 4
+#########################################
+v<-as.character(Data4$Population.density)
+Density<-as.numeric(gsub(",",'', c(v)))
+#########################################
+#########Acres in fire from data 1
+#########################################
+v<-as.character(Data1new[,1])
+Area<-as.numeric(gsub(",",'', c(v)))
+#########################################
+####wind speed from data 3
+#########################################
+v<-as.character(Data3$Average.Wind.Speed)
+W<-as.numeric(gsub("mph",'', c(v)))
+#########################################
+####county from Data3
+#########################################
+v<-as.character(Data3$County)
+County3<-sapply(strsplit(v, ","), "[", 1)
+Data3<-data.frame(Data3,County3,W)
+#########################################
+########extracting income and population information for counties that experienced fire
+#########################################
+nrow(Data1new)
+income<-c()
+pop<-c()
+county<-c()
+acres<-c()
+k=1
+for(i in 1:length(Data1new[,2])){
+for(j in 1:length(Mincome)){
+if(Data1new[i,2]==Data4$County[j]){
+	county[k]<-as.character(Data4$County[j])
+	pop[k]<-Density[j]
+	income[k]<-Mincome[j]
+	acres[k]<-Area[i]
+	k=k+1
+	}	
+}}
+#########################################
+########extracting wind information for counties that experienced fire
+#########################################
+county2<-c()
+Wind<-c()	
+k=1
+for(i in 1:length(Data1new[,2])){
+for(j in 1:length(Data3$County3)){
+
+if(Data1new[i,2]==Data3$County3[j]){
+	county2[k]<-as.character(Data3$County3[j])
+	Wind[k]<-Data3$W[j]
+	k=k+1
+	}
+	}}
+#########################################
+######Combining Data
+#########################################
+library(car)
+Mydata<-data.frame(county,acres,income,pop,Wind)
+Mydata <- Mydata[order(Mydata$pop),]
+#########################################
+################ scatther plots
+#########################################
+CA_Counties<-Mydata$county
+outName = "ScatterPlot_1.png"
+cat("Writing the scattee plot to >>> ", outName, "\n")
+png(filename=outName)
+scatterplot(Mydata$acres ~ Mydata$Wind | CA_Counties, data=Mydata,xlab="Wind Speed", ylab="Acres affeted",zlab="CA counties")
+outName = "ScatterPlot_2.png"
+cat("Writing the scattee plot to >>> ", outName, "\n")
+png(filename=outName)
+scatterplot(Mydata$acres~ (Mydata$pop) | CA_Counties, data=Mydata,xlab="Population Density", ylab="Acres affeted",zlab="CA counties")
+#########################################
+###creat new data set including frequencies of fire
+#########################################
+Mydata <- Mydata[order(Mydata$county),]
+Mynewdata1<-data.frame(Mydata$county,Mydata$Wind,Mydata$pop,Mydata$income)
+Mynewdata1<-Mynewdata1[!duplicated(Mynewdata1),]
+fires<-c(as.numeric(table(Mydata$county)))
+Acres<-aggregate(Mydata$acres, list(Mydata$county), sum)[,2]
+Mynewdata2<-data.frame(Mynewdata1$Mydata.county,Mynewdata1$Mydata.Wind,Mynewdata1$Mydata.pop,Mynewdata1$Mydata.income,fires,Acres)
+names(Mynewdata2)<-paste(c("County","Wind_Speed","Population_density","Income","Fires","Average_Acres"))
+#########################################
+#### gg plot
+#########################################
+outName = "ggPlot.png"
+cat("Writing the scattee ggplot to >>> ", outName, "\n")
+png(filename=outName)
+ggplot(Mynewdata2, 
+       aes(x = (Mynewdata2$Wind_Speed),y=(Mynewdata2$Population_density),
+           color = Mynewdata2$Average_Acres))  + geom_point(aes(size = Mynewdata2$Fires))+
+scale_colour_gradientn(colours =terrain.colors(10))+ labs(x="Wind speed [mph]", y= "Population density [people per mile squared]", color ="Acres affected by fire",size="Frequency of fires")
+dev.off()
+##############################
 
